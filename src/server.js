@@ -4,6 +4,9 @@ import { main } from "./main.js"
 const app = express()
 const PORT = process.env.PORT || 3000
 
+app.use(bodyParser.urlencoded({ extended: false }))
+app.use(bodyParser.json())
+
 app.post("/main", (req, res) => {
   try {
     const { accounts } = req.body

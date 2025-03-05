@@ -5,8 +5,7 @@ import dotenv from "dotenv"
 import axios from "axios"
 import { pdfOptions } from "./config.js"
 import { api } from "./ganttClient.js"
-import accounts from './accounts.json' assert { type: 'json' };
-
+import fs from "fs"
 dotenv.config()
 
 const getPdfUrl = (projects) => {
@@ -24,14 +23,16 @@ const getPdfUrl = (projects) => {
 const collapseRootGroups = async (projects) => {
   const groups = await api({ endpoint: `groups?project_ids=${projects}` })
 
-  const data = groups.filter((g) => g.parent_group_id == null).map((g) => {
-    return {
-      id: g.id,
-      collapsed: true
-    }
-  })
+  const data = groups
+    .filter((g) => g.parent_group_id == null)
+    .map((g) => {
+      return {
+        id: g.id,
+        collapsed: true
+      }
+    })
   // returns a 403 if user is a collaborator even though it works in the UI
-  await api({ endpoint: "groups", method: "PATCH", payload: {data} })
+  await api({ endpoint: "groups", method: "PATCH", payload: { data } })
 }
 
 const downloadPDF = async (cookie, projects) => {
@@ -134,11 +135,16 @@ const getCookie = async () => {
 
 const main = async () => {
   const cookie = await getCookie()
+  const rawAccountsData = fs.readFileSync("./src/accounts.json")
+  const accounts = JSON.parse(rawAccountsData)
   // for each account, send the email
   for (const account of accounts) {
     await emailPdf(cookie, account.email, account.projects)
   }
 }
 
+if (process.argv[1] === import.meta.filename) {
+  main();
+}
 
 export { main }

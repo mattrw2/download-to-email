@@ -133,10 +133,10 @@ const getCookie = async () => {
   return cookie
 }
 
-const main = async () => {
+const main = async (accounts) => {
   const cookie = await getCookie()
-  const rawAccountsData = fs.readFileSync("./src/accounts.json")
-  const accounts = JSON.parse(rawAccountsData)
+  // const rawAccountsData = fs.readFileSync("./src/accounts.json")
+  // const accounts = JSON.parse(rawAccountsData)
   // for each account, send the email
   for (const account of accounts) {
     await emailPdf(cookie, account.email, account.projects)

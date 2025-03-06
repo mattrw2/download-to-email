@@ -1,14 +1,18 @@
 import { createWriteStream, readFileSync } from "fs"
 import { chromium } from "playwright"
 import { createTransport } from "nodemailer"
-import dotenv from "dotenv"
-import axios from "axios"
 import { pdfOptions } from "./config.js"
 import { api } from "./ganttClient.js"
+import dotenv from "dotenv"
+import axios from "axios"
 import fs from "fs"
 dotenv.config()
 
 const getPdfUrl = (projects) => {
+  if (!projects) {
+    throw new Error("No projects specified")
+  }
+
   const baseUrl = "https://prod.teamgantt.com/gantt/export/pdf/?"
   // today is required for the nice vertical yellow line in the PDF
   const today = new Date().toISOString().split("T")[0]
@@ -21,22 +25,29 @@ const getPdfUrl = (projects) => {
 }
 
 const collapseRootGroups = async (projects) => {
-  const groups = await api(`groups?project_ids=${projects}`)
+  try {
+    console.log(`Collapsing root groups for projects: ${projects}`)
+    const groups = await api(`groups?project_ids=${projects}`)
 
-  const data = groups
-    .filter((g) => g.parent_group_id == null)
-    .map((g) => {
-      return {
-        id: g.id,
-        collapsed: true
-      }
-    })
-  // returns a 403 if user is a collaborator even though it works in the UI
-  await api("groups", {method: "PATCH", payload: { data } })
+    const data = groups
+      .filter((g) => g.parent_group_id == null)
+      .map((g) => {
+        return {
+          id: g.id,
+          collapsed: true
+        }
+      })
+    // returns a 403 if user is a collaborator even though it works in the UI
+    await api("groups", { method: "PATCH", payload: { data } })
+  } catch (error) {
+    console.error("Error collapsing root groups:", error.message)
+    throw error
+  }
 }
 
 const downloadPDF = async (cookie, projects) => {
   try {
+    console.log(`Downloading PDF for projects: ${projects}`)
     // await collapseRootGroups(projects) TODO: need admin credentials
     const url = getPdfUrl(projects)
 
@@ -63,74 +74,84 @@ const downloadPDF = async (cookie, projects) => {
       writer.on("error", reject)
     })
   } catch (error) {
-    console.error("Error downloading PDF:", error.message)
+    console.error(
+      `Error downloading PDF for projects: ${projects}:`,
+      error.message
+    )
     throw error
   }
 }
 
-const emailPdf = async (cookie, to, projects) => {
-  const outputPath = await downloadPDF(cookie, projects)
-
-  const transporter = createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD
-    }
-  })
-
-  // get the downloaded pdf file
-  const content = readFileSync(outputPath)
-
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to,
-    subject: "Your Project Report",
-    attachments: [
-      {
-        filename: "report.pdf",
-        content
+const emailPdf = async (to, filePath) => {
+  try {
+    console.log(`Emailing PDF at location ${filePath} to ${to}`)
+    const transporter = createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
       }
-    ]
-  }
+    })
 
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      console.error("Error sending email:", error.message)
-      throw error
+    const content = readFileSync(filePath)
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to,
+      subject: "Your Project Report",
+      attachments: [
+        {
+          filename: "report.pdf",
+          content
+        }
+      ]
     }
 
-    console.log("Email sent successfully!")
-  })
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error("Error sending email:", error.message)
+        throw error
+      }
+    })
+  } catch (error) {
+    console.error("Error sending email:", error.message)
+    throw error
+  }
 }
 
 const getCookie = async () => {
-  const browser = await chromium.launch({ headless: true })
-  const context = await browser.newContext()
-  const page = await context.newPage()
+  try {
+    console.log(`Getting cookie for ${process.env.TEAMGANTT_USER}`)
+    const browser = await chromium.launch({ headless: true })
+    const context = await browser.newContext()
+    const page = await context.newPage()
 
-  // Navigate to TeamGantt login page
-  await page.goto("https://app.teamgantt.com/my-projects/active/pages/1")
+    // Navigate to TeamGantt login page
+    await page.goto("https://app.teamgantt.com/my-projects/active/pages/1")
 
-  // Fill in the login form
-  await page.fill('input[name="email"]', process.env.TEAMGANTT_USER)
-  await page.fill('input[name="password"]', process.env.TEAMGANTT_PASSWORD)
+    // Fill in the login form
+    await page.fill('input[name="email"]', process.env.TEAMGANTT_USER)
+    await page.fill('input[name="password"]', process.env.TEAMGANTT_PASSWORD)
 
-  // Click the login button
-  await page.click('input[type="submit"]')
+    // Click the login button
+    await page.click('input[type="submit"]')
 
-  // Wait for the login to complete
-  await page.waitForURL(
-    "https://app.teamgantt.com/my-projects/active/pages/1",
-    { timeout: 30000 }
-  )
+    // Wait for the login to complete
+    await page.waitForURL(
+      "https://app.teamgantt.com/my-projects/active/pages/1",
+      { timeout: 30000 }
+    )
 
-  const cookies = await page.context().cookies()
-  const cookie = cookies.map((c) => `${c.name}=${c.value}`).join("; ")
+    const cookies = await page.context().cookies()
+    const cookie = cookies.map((c) => `${c.name}=${c.value}`).join("; ")
 
-  await browser.close()
+    await browser.close()
 
-  return cookie
+    return cookie
+  } catch (error) {
+    console.error("Error getting cookie:", error.message)
+    throw error
+  }
 }
 
 const main = async () => {
@@ -139,12 +160,13 @@ const main = async () => {
   const accounts = JSON.parse(rawAccountsData)
   // for each account, send the email
   for (const account of accounts) {
-    await emailPdf(cookie, account.email, account.projects)
+    const filePath = await downloadPDF(cookie, account.project)
+    await emailPdf(account.email, filePath)
   }
 }
 
 if (process.argv[1] === import.meta.filename) {
-  main();
+  main()
 }
 
 export { main }

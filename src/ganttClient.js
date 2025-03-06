@@ -21,7 +21,7 @@ const getToken = async () => {
   return access_token
 }
 
-const api = async ({ endpoint, method = "GET", payload = null }) => {
+const api = async (endpoint, { method = "GET", payload = null }) => {
   const accessToken = await getToken()
   const headers = {
     Authorization: `Bearer ${accessToken}`,

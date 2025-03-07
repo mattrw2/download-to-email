@@ -17,10 +17,10 @@
 
 Create PDFs and save them in the "/reports" folder, but don't send them. 
 ```
-npm run dry-run
+npm run simulateOnly
 ```
 
-Create PDFs and email them out to the email speciefied in the `accounts.json` file.
+Create PDFs and send them to the email specified in the `accounts.json` file.
 ```
 npm start
 ```

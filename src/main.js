@@ -154,19 +154,28 @@ const getCookie = async () => {
   }
 }
 
-const main = async () => {
+const main = async (isSimulated = false) => {
   const cookie = await getCookie()
   const rawAccountsData = fs.readFileSync("./src/accounts.json")
   const accounts = JSON.parse(rawAccountsData)
   // for each account, send the email
   for (const account of accounts) {
     const filePath = await downloadPDF(cookie, account.project)
+
+    if (isSimulated) {
+      console.log(
+        `This is a dry run: skipping emailing PDF at location ${filePath} to ${account.email}`
+      )
+      continue
+    }
+
     await emailPdf(account.email, filePath)
   }
 }
 
 if (process.argv[1] === import.meta.filename) {
-  main()
+  const isSimulated = process.argv.includes("simulateOnly")
+  main(isSimulated)
 }
 
 export { main }

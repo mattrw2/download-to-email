@@ -64,6 +64,11 @@ const downloadPDF = async (cookie, projects) => {
 
     const timeStamp = new Date().toISOString()
 
+    // Create the reports directory if it doesn't exist
+    if (!fs.existsSync('./reports')) {
+      fs.mkdirSync('./reports')
+    }
+
     const outputPath = `./reports/${projects}-${timeStamp}.pdf`
 
     const writer = createWriteStream(outputPath)
@@ -138,7 +143,7 @@ const getCookie = async () => {
 
     // Wait for the login to complete
     await page.waitForURL(
-      "https://app.teamgantt.com/my-projects/active/pages/1",
+      "https://app.teamgantt.com",
       { timeout: 30000 }
     )
 
@@ -174,7 +179,7 @@ const main = async (isSimulated = false) => {
 }
 
 if (process.argv[1] === import.meta.filename) {
-  const isSimulated = process.argv.includes("simulateOnly")
+  const isSimulated = process.argv.includes("simulate")
   main(isSimulated)
 }
 

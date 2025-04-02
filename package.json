@@ -6,7 +6,8 @@
     "playwright": "^1.49.1"
   },
   "scripts": {
-    "start": "node src/main.js"
+    "start": "node src/main.js",
+    "simulate": "node src/main.js simulate"
   },
   "type": "module"
 }

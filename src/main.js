@@ -62,7 +62,7 @@ const downloadPDF = async (cookie, projects) => {
       maxRedirects: 0
     })
 
-    const timeStamp = new Date().toISOString()
+    const timeStamp = Date.now()
 
     // Create the reports directory if it doesn't exist
     if (!fs.existsSync('./reports')) {

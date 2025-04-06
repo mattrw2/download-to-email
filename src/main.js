@@ -1,7 +1,7 @@
 import { createWriteStream, readFileSync } from "fs"
 import { chromium } from "playwright"
 import { createTransport } from "nodemailer"
-import { pdfOptions } from "./config.js"
+import { emailFileName, emailSubject, pdfOptions } from "./config.js"
 import { api } from "./ganttClient.js"
 import dotenv from "dotenv"
 import axios from "axios"
@@ -34,7 +34,7 @@ const collapseRootGroups = async (projects) => {
       .map((g) => {
         return {
           id: g.id,
-          collapsed: true
+          is_collapsed: true
         }
       })
     // returns a 403 if user is a collaborator even though it works in the UI
@@ -48,7 +48,7 @@ const collapseRootGroups = async (projects) => {
 const downloadPDF = async (cookie, projects) => {
   try {
     console.log(`Downloading PDF for projects: ${projects}`)
-    // await collapseRootGroups(projects) TODO: need admin credentials
+    await collapseRootGroups(projects)
     const url = getPdfUrl(projects)
 
     const headers = {
@@ -91,7 +91,7 @@ const emailPdf = async (to, filePath) => {
   try {
     console.log(`Emailing PDF at location ${filePath} to ${to}`)
     const transporter = createTransport({
-      service: "gmail",
+      host: process.env.EMAIL_HOST ?? "smtp.office365.com",
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD
@@ -103,10 +103,10 @@ const emailPdf = async (to, filePath) => {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to,
-      subject: "Your Project Report",
+      subject: emailSubject,
       attachments: [
         {
-          filename: "report.pdf",
+          filename: `${emailFileName}.pdf`,
           content
         }
       ]
@@ -132,7 +132,7 @@ const getCookie = async () => {
     const page = await context.newPage()
 
     // Navigate to TeamGantt login page
-    await page.goto("https://app.teamgantt.com/my-projects/active/pages/1")
+    await page.goto("https://app.teamgantt.com")
 
     // Fill in the login form
     await page.fill('input[name="email"]', process.env.TEAMGANTT_USER)
@@ -169,7 +169,7 @@ const main = async (isSimulated = false) => {
 
     if (isSimulated) {
       console.log(
-        `This is a dry run: skipping emailing PDF at location ${filePath} to ${account.email}`
+        `This is a simulation: skipping emailing PDF at location ${filePath} to ${account.email}`
       )
       continue
     }

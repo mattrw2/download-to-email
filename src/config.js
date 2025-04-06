@@ -3,7 +3,7 @@ const pdfOptions = {
   color: "default",
   orientation: "l", // landscape
   include_blank_dates: "1",
-  show_estimated_hours_column: "0",
+  show_estimated_hours_column: "0", // this also hides the actual hours column
   show_percent_column: "1",
   display_resources: "0",
   display_dependencies: "0",
@@ -16,4 +16,8 @@ const pdfOptions = {
   show_project_name_on_bar: "1"
 }
 
-export { pdfOptions }
+const emailSubject = "Your Project Report"
+const emailFileName = "report"
+
+
+export { pdfOptions, emailSubject, emailFileName }

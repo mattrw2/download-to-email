@@ -27,12 +27,14 @@
 
 ### Running Scripts
 
+You must pass a `date` argument to `npm start` in order to run the script. This helps to prevent us from sending the same weekly report multiple times accidentally. It also allows us to re-run the same date if some of the emails failed to send without re-sending the previously successful emails.
+
 - Create PDFs and save them in the "/reports" folder, but don't send them. 
     ```
-    npm run simulate
+    npm start -- --simulate=true --date=yyyy-mm-dd
     ```
 
 - Create PDFs and send them to the email specified in the `accounts.json` file.
     ```
-    npm start
+    npm start -- --date=yyyy-mm-dd
     ```

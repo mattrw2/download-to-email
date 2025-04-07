@@ -1,11 +1,17 @@
 import { createWriteStream, readFileSync } from "fs"
 import { chromium } from "playwright"
 import { createTransport } from "nodemailer"
-import { emailFileName, emailSubject, pdfOptions } from "./config.js"
+import {
+  emailFileName,
+  emailSubject,
+  logFileName,
+  pdfOptions
+} from "./config.js"
 import { api } from "./ganttClient.js"
 import dotenv from "dotenv"
 import axios from "axios"
 import fs from "fs"
+import minimist from "minimist"
 dotenv.config()
 
 const getPdfUrl = (projects) => {
@@ -45,7 +51,7 @@ const collapseRootGroups = async (projects) => {
   }
 }
 
-const downloadPDF = async (cookie, projects) => {
+const downloadPDF = async (cookie, projects, date) => {
   try {
     console.log(`Downloading PDF for projects: ${projects}`)
     await collapseRootGroups(projects)
@@ -62,14 +68,12 @@ const downloadPDF = async (cookie, projects) => {
       maxRedirects: 0
     })
 
-    const timeStamp = Date.now()
-
     // Create the reports directory if it doesn't exist
-    if (!fs.existsSync('./reports')) {
-      fs.mkdirSync('./reports')
+    if (!fs.existsSync("./reports")) {
+      fs.mkdirSync("./reports")
     }
 
-    const outputPath = `./reports/${projects}-${timeStamp}.pdf`
+    const outputPath = `./reports/${projects}_${date}.pdf`
 
     const writer = createWriteStream(outputPath)
     response.data.pipe(writer)
@@ -142,10 +146,7 @@ const getCookie = async () => {
     await page.click('input[type="submit"]')
 
     // Wait for the login to complete
-    await page.waitForURL(
-      "https://app.teamgantt.com",
-      { timeout: 30000 }
-    )
+    await page.waitForURL("https://app.teamgantt.com", { timeout: 30000 })
 
     const cookies = await page.context().cookies()
     const cookie = cookies.map((c) => `${c.name}=${c.value}`).join("; ")
@@ -159,13 +160,61 @@ const getCookie = async () => {
   }
 }
 
-const main = async (isSimulated = false) => {
+const getSentMails = () => {
+  const logPath = `./${logFileName}.csv`
+  if (!fs.existsSync(logPath)) {
+    return []
+  }
+
+  const lines = fs
+    .readFileSync(logPath, "utf-8")
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+
+  // Skip the first line (header)
+  return lines.slice(1).map((line) => {
+    const [project, email, date ] = line.split(",")
+    return { project, email, date}
+  })
+}
+
+const logSentMail = (project, email, date) => {
+  const logPath = `./${logFileName}.csv`
+  if (!fs.existsSync(logPath)) {
+    const header = "project,email,date\n"
+    fs.writeFileSync(logPath, header)
+  }
+
+  const logData = `${project},${email},${date}\n`
+  fs.appendFileSync(logPath, logData)
+}
+
+const main = async (isSimulated, date) => {
+  const sentEmails = getSentMails()
   const cookie = await getCookie()
   const rawAccountsData = fs.readFileSync("./src/accounts.json")
   const accounts = JSON.parse(rawAccountsData)
   // for each account, send the email
   for (const account of accounts) {
-    const filePath = await downloadPDF(cookie, account.project)
+    if (!account.project || !account.email) {
+      console.error("Missing project or email for account:", account)
+      continue
+    }
+    // Check if the email has already been sent for this week
+    const sentEmail = sentEmails.find(
+      (email) =>
+        email.project === account.project &&
+        email.email === account.email &&
+        email.date === date
+    )
+    if (sentEmail) {
+      console.log(
+        `Email already sent for project ${account.project} to ${account.email} on ${date}`
+      )
+      continue
+    }
+
+    const filePath = await downloadPDF(cookie, account.project, date)
 
     if (isSimulated) {
       console.log(
@@ -174,13 +223,27 @@ const main = async (isSimulated = false) => {
       continue
     }
 
-    await emailPdf(account.email, filePath)
+    try {
+      await emailPdf(account.email, filePath)
+      logSentMail(account.project, account.email, filePath.split("_")[1].split(".")[0])
+    } catch (error) {
+      console.error(
+        `Error emailing PDF at location ${filePath} to ${account.email}:`,
+        error.message
+      )
+    }
   }
 }
 
 if (process.argv[1] === import.meta.filename) {
-  const isSimulated = process.argv.includes("simulate")
-  main(isSimulated)
+  const {date, simulate} = minimist(process.argv.slice(2))
+
+  if (!date) {
+    console.error("Please provide a date using -- --date=YYYY-MM-DD")
+    process.exit(1)
+  }
+
+  main(simulate, date)
 }
 
 export { main }

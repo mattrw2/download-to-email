@@ -18,6 +18,7 @@ const pdfOptions = {
 
 const emailSubject = "Your Project Report"
 const emailFileName = "report"
+const logFileName = "mailLog"
 
 
-export { pdfOptions, emailSubject, emailFileName }
+export { pdfOptions, emailSubject, emailFileName, logFileName }

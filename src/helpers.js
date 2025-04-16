@@ -1,6 +1,44 @@
 import fs from "fs"
 import { logFileName } from "./config.js"
 import { pdfOptions } from "./config.js"
+import axios from "axios"
+
+const notifyTeams = async (errorMessage) => {
+  if (process.env.NODE_ENV === "test") {
+    console.log("Skipping Teams notification in test mode")
+    return
+  }
+
+  const time = new Date().toLocaleString()
+
+  const messageCard =  {
+    "@type": "MessageCard",
+    "@context": "http://schema.org/extensions",
+    themeColor: "0076D7",
+    summary: "Issue encountered when executing teamgantt-project-emailer",
+    sections: [
+      {
+        activityTitle: `TEST ${errorMessage}`,
+        markdown: true,
+        facts: [
+          {
+            name: "Triggered at",
+            value: time
+          }
+        ]
+      }
+    ]
+  }
+
+  const webhookUrl = process.env.TEAMS_WEBHOOK_URL
+
+  if (!webhookUrl) {
+    console.error("No webhook URL specified")
+    return
+  }
+
+  axios.post(webhookUrl, messageCard)
+}
 
 const getPdfUrl = (projects) => {
   if (!projects) {
@@ -57,4 +95,4 @@ const getAccountsData = () => {
   return JSON.parse(accountsData)
 }
 
-export { getPdfUrl, getSentMails, logSentMail, getAccountsData }
+export { getPdfUrl, getSentMails, logSentMail, getAccountsData, notifyTeams }

@@ -7,8 +7,8 @@
     "playwright": "^1.49.1"
   },
   "scripts": {
-    "start": "node src/index.js",
-    "test": "node --test"
+    "start": "NODE_ENV=production node src/index.js",
+    "test": "NODE_ENV=test node --test"
   },
   "type": "module"
 }

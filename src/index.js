@@ -13,7 +13,8 @@ import {
   getAccountsData,
   getPdfUrl,
   getSentMails,
-  logSentMail
+  logSentMail,
+  notifyTeams
 } from "./helpers.js"
 dotenv.config()
 
@@ -24,9 +25,9 @@ function loadTemplate(data) {
   return template(data)
 }
 
-const downloadPDF = async (cookie, projects, date) => {
-  await collapseRootGroups(projects)
-  const url = getPdfUrl(projects)
+const downloadPDF = async (cookie, teamgantt_project_id, date) => {
+  await collapseRootGroups(teamgantt_project_id)
+  const url = getPdfUrl(teamgantt_project_id)
 
   const headers = {
     Cookie: cookie,
@@ -44,7 +45,7 @@ const downloadPDF = async (cookie, projects, date) => {
     fs.mkdirSync("./reports")
   }
 
-  const outputPath = `./reports/${projects}_${date}.pdf`
+  const outputPath = `./reports/${teamgantt_project_id}_${date}.pdf`
 
   const writer = createWriteStream(outputPath)
   response.data.pipe(writer)
@@ -57,7 +58,7 @@ const downloadPDF = async (cookie, projects, date) => {
           fs.unlinkSync(outputPath)
           return reject(
             new Error(
-              `Downloaded file is empty. project ${projects} may not exist`
+              `Downloaded file is empty. project ${teamgantt_project_id} may not exist`
             )
           )
         }
@@ -70,10 +71,10 @@ const downloadPDF = async (cookie, projects, date) => {
   })
 
   // check to make sure groups are still collapsed
-  const groups = await getRootGroups(projects)
+  const groups = await getRootGroups(teamgantt_project_id)
   groups.forEach((group) => {
     if (!group.is_collapsed) {
-      throw new Error(`Group ${group.id} is not collapsed. Please try again.`)
+      throw new Error(`Project ${teamgantt_project_id} has expanded groups`)
     }
   })
 
@@ -162,67 +163,79 @@ const main = async ({
   emailPdf,
   logSentMail
 }) => {
-  console.log(
-    `Running in ${
-      isSimulated ? "simulation" : "production"
-    } mode with date: ${date}`
-  )
-  const cookie = await getCookie()
-  const sentEmails = getSentMails()
-
-  for (const account of accounts) {
-    if (!account.teamgantt_project_id || !account.email) {
-      console.error("Skipping: missing project or email for account:", account)
-      continue
-    }
+  try {
     console.log(
-      `Processing project: ${account.teamgantt_project_id} with email: ${account.email}`
+      `Running in ${
+        isSimulated ? "simulation" : "production"
+      } mode with date: ${date}`
     )
-    // Check if the email has already been sent for this date
-    const sentEmail = sentEmails.find(
-      (email) =>
-        email.project === account.teamgantt_project_id &&
-        email.email === account.email &&
-        email.date === date
-    )
-    if (sentEmail) {
+    const cookie = await getCookie()
+    const sentEmails = getSentMails()
+
+    for (const account of accounts) {
+      if (!account.teamgantt_project_id || !account.email) {
+        console.error(
+          "Skipping: missing project or email for account:",
+          account
+        )
+        notifyTeams(
+          `Missing project or email for account: ${JSON.stringify(account)}`
+        )
+        continue
+      }
       console.log(
-        `Skipping: email already sent for project ${account.teamgantt_project_id} to ${account.email} on ${date}`
+        `Processing project: ${account.teamgantt_project_id} with email: ${account.email}`
       )
-      continue
-    }
+      // Check if the email has already been sent for this date
+      const sentEmail = sentEmails.find(
+        (email) =>
+          email.project === account.teamgantt_project_id &&
+          email.email === account.email &&
+          email.date === date
+      )
+      if (sentEmail) {
+        console.log(
+          `Skipping: email already sent for project ${account.teamgantt_project_id} to ${account.email} on ${date}`
+        )
+        continue
+      }
 
-    let filePath
+      let filePath
 
-    try {
-      filePath = await downloadPDF(cookie, account.teamgantt_project_id, date)
-    } catch (error) {
-      console.error(
-        `Error downloading PDF for project ${account.teamgantt_project_id}:`,
-        error.message
-      )
-      continue
-    }
+      try {
+        filePath = await downloadPDF(cookie, account.teamgantt_project_id, date)
+      } catch (error) {
+        console.error(
+          "Error downloading PDF",
+          error.message
+        )
+        notifyTeams(error.message)
+        continue
+      }
 
-    if (isSimulated) {
-      console.log(
-        `Skipping (simulation mode): emailing PDF at location ${filePath} to ${account.email}`
-      )
-      continue
-    }
+      if (isSimulated) {
+        console.log(
+          `Skipping (simulation mode): emailing PDF at location ${filePath} to ${account.email}`
+        )
+        continue
+      }
 
-    try {
-      await emailPdf(filePath, account)
-      logSentMail(account.teamgantt_project_id, account.email, filePath)
-      console.log(
-        `Success: email sent successfully to ${account.email} for project ${account.teamgantt_project_id}`
-      )
-    } catch (error) {
-      console.error(
-        `Error emailing PDF at location ${filePath} to ${account.email}:`,
-        error.message
-      )
+      try {
+        await emailPdf(filePath, account)
+        logSentMail(account.teamgantt_project_id, account.email, filePath)
+        console.log(
+          `Success: email sent successfully to ${account.email} for project ${account.teamgantt_project_id}`
+        )
+      } catch (error) {
+        console.error(
+          `Error emailing PDF at location ${filePath} to ${account.email}:`,
+          error.message
+        )
+        throw error
+      }
     }
+  } catch (error) {
+    notifyTeams(error.message)
   }
 }
 

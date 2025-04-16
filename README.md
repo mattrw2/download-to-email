@@ -25,16 +25,24 @@
 1. Populate `accounts.json` with client and project data
 
 
-### Running Scripts
+### Emailing Reports
 
-You must pass a `date` argument to `npm start` in order to run the script. This helps to prevent us from sending the same weekly report multiple times accidentally. It also allows us to re-run the same date if some of the emails failed to send without re-sending the previously successful emails.
+Create PDFs, save them in the `reports` folder, and send them out to the emails specified in `accounts.json`, and log the succesfully sent emails to `mailLog.csv`. You can optionally pass  `simulate` and `date` as command-line arguments.
 
-- Create PDFs and save them in the "/reports" folder, but don't send them. 
+__Defaults:__
+
+- `simulate=false`
+- `date=today` (in YYYY-MM_DD format)
+
+
+__Usage:__
+
+- With defaults:
     ```
-    npm start -- --simulate=true --date=yyyy-mm-dd
+    npm start
     ```
 
-- Create PDFs and send them to the email specified in the `accounts.json` file.
+- With arguments:
     ```
-    npm start -- --date=yyyy-mm-dd
+    npm start -- --simulate=true --date=YYYY-MM-DD
     ```

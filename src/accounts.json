@@ -1,7 +1,11 @@
 [
   {
-    "company_name": "PTM Mechatronics test",
-    "project": "4251746",
-    "email": "mattrw2@gmail.com"
+    "first_name": "Matt",
+    "last_name": "R",
+    "teamgantt_project_id": "4251746",
+    "project_name": "PTM Mechatronics",
+    "project_number": "1234",
+    "email": "mattrw2@gmail.com",
+    "cc": ["mattrw2@gmail.com"]
   }
 ]

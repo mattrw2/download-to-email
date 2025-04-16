@@ -47,4 +47,23 @@ const api = async (endpoint, { method = "GET", payload = null } = {}) => {
   return response.data
 }
 
-export { api }
+const collapseRootGroups = async (projects) => {
+  try {
+    const groups = await api(`groups?project_ids=${projects}`)
+
+    const data = groups
+      .filter((g) => g.parent_group_id == null)
+      .map((g) => {
+        return {
+          id: g.id,
+          is_collapsed: true
+        }
+      })
+    await api("groups", { method: "PATCH", payload: { data } })
+  } catch (error) {
+    console.error("Error collapsing root groups:", error.message)
+    throw error
+  }
+}
+
+export { collapseRootGroups }

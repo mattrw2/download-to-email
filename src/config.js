@@ -16,9 +16,8 @@ const pdfOptions = {
   show_project_name_on_bar: "1"
 }
 
-const emailSubject = "Your Project Report"
 const emailFileName = "report"
 const logFileName = "mailLog"
 
 
-export { pdfOptions, emailSubject, emailFileName, logFileName }
+export { pdfOptions, emailFileName, logFileName }

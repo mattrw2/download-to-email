@@ -5,15 +5,20 @@ import { emailFileName } from "./config.js"
 import dotenv from "dotenv"
 import axios from "axios"
 import fs from "fs"
-import {join} from "path"
+import { join } from "path"
 import minimist from "minimist"
 import handlebars from "handlebars"
 import { collapseRootGroups } from "./api.js"
-import { getAccountsData, getPdfUrl, getSentMails, logSentMail } from "./helpers.js"
+import {
+  getAccountsData,
+  getPdfUrl,
+  getSentMails,
+  logSentMail
+} from "./helpers.js"
 dotenv.config()
 
 function loadTemplate(data) {
-  const templatePath = join(import.meta.dirname,'email.html');
+  const templatePath = join(import.meta.dirname, "email.html")
   const templateContent = fs.readFileSync(templatePath, "utf8")
   const template = handlebars.compile(templateContent)
   return template(data)
@@ -137,11 +142,23 @@ const getCookie = async () => {
   }
 }
 
-const main = async (isSimulated, date) => {
-  console.log(`Running in ${isSimulated ? "simulation" : "production"} mode with date: ${date}`)
+const main = async ({
+  isSimulated,
+  date,
+  accounts,
+  getCookie,
+  getSentMails,
+  downloadPDF,
+  emailPdf,
+  logSentMail
+}) => {
+  console.log(
+    `Running in ${
+      isSimulated ? "simulation" : "production"
+    } mode with date: ${date}`
+  )
   const cookie = await getCookie()
   const sentEmails = getSentMails()
-  const accounts = getAccountsData()
 
   for (const account of accounts) {
     if (!account.teamgantt_project_id || !account.email) {
@@ -177,7 +194,6 @@ const main = async (isSimulated, date) => {
       continue
     }
 
-  
     if (isSimulated) {
       console.log(
         `Skipping (simulation mode): emailing PDF at location ${filePath} to ${account.email}`
@@ -208,7 +224,20 @@ if (process.argv[1] === import.meta.filename) {
     date = new Date().toISOString().split("T")[0]
   }
 
-  main(simulate, date)
+  const accounts = getAccountsData()
+
+  main({
+    simulate,
+    date,
+    accounts,
+    getCookie,
+    getSentMails,
+    downloadPDF,
+    emailPdf,
+    logSentMail
+  })
 }
 
-export { main, getCookie, downloadPDF, emailPdf, getPdfUrl, getSentMails, logSentMail }
+export {
+  main
+}

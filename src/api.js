@@ -66,4 +66,14 @@ const collapseRootGroups = async (projects) => {
   }
 }
 
-export { collapseRootGroups }
+const getRootGroups = async (projects) => {
+  try {
+    const groups = await api(`groups?project_ids=${projects}`)
+    return groups.filter((g) => g.parent_group_id == null)
+  } catch (error) {
+    console.error("Error fetching root groups:", error.message)
+    throw error
+  }
+}
+
+export { collapseRootGroups, getRootGroups }

@@ -8,7 +8,7 @@ import fs from "fs"
 import { join } from "path"
 import minimist from "minimist"
 import handlebars from "handlebars"
-import { collapseRootGroups } from "./api.js"
+import { collapseRootGroups, getRootGroups } from "./api.js"
 import {
   getAccountsData,
   getPdfUrl,
@@ -49,7 +49,7 @@ const downloadPDF = async (cookie, projects, date) => {
   const writer = createWriteStream(outputPath)
   response.data.pipe(writer)
 
-  return new Promise((resolve, reject) => {
+  const output = await new Promise((resolve, reject) => {
     writer.on("finish", () => {
       try {
         const stats = fs.statSync(outputPath)
@@ -68,6 +68,16 @@ const downloadPDF = async (cookie, projects, date) => {
     })
     writer.on("error", reject)
   })
+
+  // check to make sure groups are still collapsed
+  const groups = await getRootGroups(projects)
+  groups.forEach((group) => {
+    if (!group.is_collapsed) {
+      throw new Error(`Group ${group.id} is not collapsed. Please try again.`)
+    }
+  })
+
+  return output
 }
 
 const emailPdf = async (filePath, data) => {
@@ -238,6 +248,4 @@ if (process.argv[1] === import.meta.filename) {
   })
 }
 
-export {
-  main
-}
+export { main }

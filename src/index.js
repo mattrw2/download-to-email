@@ -153,8 +153,24 @@ const getCookie = async () => {
   }
 }
 
+
+/**
+ * Main entry point for processing and sending account-related PDFs.
+ *
+ * @param {Object} options - The options object.
+ * @param {boolean} options.simulate - If true, simulate actions without making changes.
+ * @param {string} options.date - The date to use for processing (format: YYYY-MM-DD).
+ * @param {Array} options.accounts - List of accounts to process.
+ * @param {Function} options.getCookie - Function that returns an auth cookie string.
+ * @param {Function} options.getSentMails - Function to retrieve a list of previously sent emails.
+ * @param {Function} options.downloadPDF - Function that downloads the PDF for an account.
+ * @param {Function} options.emailPdf - Function that sends the PDF via email.
+ * @param {Function} options.logSentMail - Function that logs a successfully sent email.
+ * @returns {Promise<void>} Resolves when the process is complete.
+ */
+
 const main = async ({
-  isSimulated,
+  simulate,
   date,
   accounts,
   getCookie,
@@ -166,7 +182,7 @@ const main = async ({
   try {
     console.log(
       `Running in ${
-        isSimulated ? "simulation" : "production"
+        simulate ? "simulation" : "production"
       } mode with date: ${date}`
     )
     const cookie = await getCookie()
@@ -213,7 +229,7 @@ const main = async ({
         continue
       }
 
-      if (isSimulated) {
+      if (simulate) {
         console.log(
           `Skipping (simulation mode): emailing PDF at location ${filePath} to ${account.email}`
         )
@@ -242,22 +258,21 @@ const main = async ({
 if (process.argv[1] === import.meta.filename) {
   let { date, simulate } = minimist(process.argv.slice(2))
 
-  if (!date) {
-    // set the date to today if not provided
-    date = new Date().toISOString().split("T")[0]
-  }
-
-  const accounts = getAccountsData()
-
-  main({
-    simulate,
-    date,
-    accounts,
+  const defaults = {
+    date: new Date().toISOString().split("T")[0],
+    simulate: false,
+    accounts: getAccountsData(),
     getCookie,
     getSentMails,
     downloadPDF,
     emailPdf,
     logSentMail
+  }
+
+  main({
+    ...defaults,
+    ...(date && { date }),
+    ...(simulate && { simulate })
   })
 }
 

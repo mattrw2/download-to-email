@@ -5,7 +5,7 @@ import { main } from "../src/index.js"
 
 test("shouldn't email the pdf in simulation mode", async () => {
   const date = "2023-10-01"
-  const isSimulated = true
+  const simulate = true
   const mockedAccounts = [
     {
       first_name: "Matt",
@@ -29,7 +29,7 @@ test("shouldn't email the pdf in simulation mode", async () => {
   const mockedLogSentMail = () => {}
 
   await main({
-    isSimulated,
+    simulate,
     date,
     accounts: mockedAccounts,
     getCookie: mockedGetCookie,
@@ -44,7 +44,7 @@ test("shouldn't email the pdf in simulation mode", async () => {
 
 test("shouldn't email the pdf if it's already been sent", async () => {
   const date = "2023-10-01"
-  const isSimulated = true
+  const simulate = false
   const mockedAccounts = [
     {
       first_name: "Matt",
@@ -75,7 +75,7 @@ test("shouldn't email the pdf if it's already been sent", async () => {
   const mockedLogSentMail = () => {}
 
   await main({
-    isSimulated,
+    simulate,
     date,
     accounts: mockedAccounts,
     getCookie: mockedGetCookie,
@@ -90,7 +90,7 @@ test("shouldn't email the pdf if it's already been sent", async () => {
 
 test("shouldn't email pdf if there is an error downloading it", async () => {
   const date = "2023-10-01"
-  const isSimulated = true
+  const simulate = false
   const mockedAccounts = [
     {
       first_name: "Matt",
@@ -115,7 +115,7 @@ test("shouldn't email pdf if there is an error downloading it", async () => {
   const mockedLogSentMail = () => {}
 
   await main({
-    isSimulated,
+    simulate,
     date,
     accounts: mockedAccounts,
     getCookie: mockedGetCookie,

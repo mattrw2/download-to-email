@@ -9,7 +9,7 @@ const pdfOptions = {
   display_dependencies: "0",
   display_name_in_bars: "0",
   show_name_next_to_bar: "1",
-  date_format: "j%2Fn%2Fy", // DD/MM/YY
+  date_format: "d/m/Y", // DD/MM/YY
   pdf_font_face: "dejavusans", // system default
   pdf_font_size: "8",
   task_list: "large", // task details width

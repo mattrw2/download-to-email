@@ -18,7 +18,7 @@ const notifyTeams = async (errorMessage) => {
     summary: "Issue encountered when executing teamgantt-project-emailer",
     sections: [
       {
-        activityTitle: `TEST ${errorMessage}`,
+        activityTitle: `${errorMessage}`,
         markdown: true,
         facts: [
           {

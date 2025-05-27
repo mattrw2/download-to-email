@@ -153,7 +153,6 @@ const getCookie = async () => {
   }
 }
 
-
 /**
  * Main entry point for processing and sending account-related PDFs.
  *
@@ -179,101 +178,96 @@ const main = async ({
   emailPdf,
   logSentMail
 }) => {
-  try {
-    console.log(
-      `Running in ${
-        simulate ? "simulation" : "production"
-      } mode with date: ${date}`
-    )
-    const cookie = await getCookie()
-    const sentEmails = getSentMails()
+  console.log(
+    `Running in ${
+      simulate ? "simulation" : "production"
+    } mode with date: ${date}`
+  )
+  const cookie = await getCookie()
+  const sentEmails = getSentMails()
 
-    for (const account of accounts) {
-      if (!account.teamgantt_project_id || !account.email) {
-        console.error(
-          "Skipping: missing project or email for account:",
-          account
-        )
-        notifyTeams(
-          `Missing project or email for account: ${JSON.stringify(account)}`
-        )
-        continue
-      }
-      console.log(
-        `Processing project: ${account.teamgantt_project_id} with email: ${account.email}`
+  for (const account of accounts) {
+    if (!account.teamgantt_project_id || !account.email) {
+      console.error("Skipping: missing project or email for account:", account)
+      notifyTeams(
+        `Missing project or email for account: ${JSON.stringify(account)}`
       )
-      // Check if the email has already been sent for this date
-      const sentEmail = sentEmails.find(
-        (email) =>
-          email.project === account.teamgantt_project_id &&
-          email.email === account.email &&
-          email.date === date
-      )
-      if (sentEmail) {
-        console.log(
-          `Skipping: email already sent for project ${account.teamgantt_project_id} to ${account.email} on ${date}`
-        )
-        continue
-      }
-
-      let filePath
-
-      try {
-        filePath = await downloadPDF(cookie, account.teamgantt_project_id, date)
-      } catch (error) {
-        console.error(
-          "Error downloading PDF",
-          error.message
-        )
-        notifyTeams(error.message)
-        continue
-      }
-
-      if (simulate) {
-        console.log(
-          `Skipping (simulation mode): emailing PDF at location ${filePath} to ${account.email}`
-        )
-        continue
-      }
-
-      try {
-        await emailPdf(filePath, account)
-        logSentMail(account.teamgantt_project_id, account.email, filePath)
-        console.log(
-          `Success: email sent successfully to ${account.email} for project ${account.teamgantt_project_id}`
-        )
-      } catch (error) {
-        console.error(
-          `Error emailing PDF at location ${filePath} to ${account.email}:`,
-          error.message
-        )
-        throw error
-      }
+      continue
     }
-  } catch (error) {
-    notifyTeams(error.message)
+    console.log(
+      `Processing project: ${account.teamgantt_project_id} with email: ${account.email}`
+    )
+    // Check if the email has already been sent for this date
+    const sentEmail = sentEmails.find(
+      (email) =>
+        email.project === account.teamgantt_project_id &&
+        email.email === account.email &&
+        email.date === date
+    )
+    if (sentEmail) {
+      console.log(
+        `Skipping: email already sent for project ${account.teamgantt_project_id} to ${account.email} on ${date}`
+      )
+      continue
+    }
+
+    let filePath
+
+    try {
+      filePath = await downloadPDF(cookie, account.teamgantt_project_id, date)
+    } catch (error) {
+      console.error("Error downloading PDF", error.message)
+      notifyTeams(error.message)
+      continue
+    }
+
+    if (simulate) {
+      console.log(
+        `Skipping (simulation mode): emailing PDF at location ${filePath} to ${account.email}`
+      )
+      continue
+    }
+
+    try {
+      await emailPdf(filePath, account)
+      logSentMail(account.teamgantt_project_id, account.email, filePath)
+      console.log(
+        `Success: email sent successfully to ${account.email} for project ${account.teamgantt_project_id}`
+      )
+    } catch (error) {
+      console.error(
+        `Error emailing PDF at location ${filePath} to ${account.email}:`,
+        error.message
+      )
+      throw error
+    }
   }
 }
 
 if (process.argv[1] === import.meta.filename) {
-  let { date, simulate } = minimist(process.argv.slice(2))
+  try {
+    let { date, simulate } = minimist(process.argv.slice(2))
 
-  const defaults = {
-    date: new Date().toISOString().split("T")[0],
-    simulate: false,
-    accounts: getAccountsData(),
-    getCookie,
-    getSentMails,
-    downloadPDF,
-    emailPdf,
-    logSentMail
+    const defaults = {
+      date: new Date().toISOString().split("T")[0],
+      simulate: false,
+      accounts: getAccountsData(),
+      getCookie,
+      getSentMails,
+      downloadPDF,
+      emailPdf,
+      logSentMail
+    }
+
+    main({
+      ...defaults,
+      ...(date && { date }),
+      ...(simulate && { simulate })
+    })
+  } catch (error) {
+    console.error(error.message)
+    notifyTeams(error.message)
   }
-
-  main({
-    ...defaults,
-    ...(date && { date }),
-    ...(simulate && { simulate })
-  })
 }
 
 export { main }

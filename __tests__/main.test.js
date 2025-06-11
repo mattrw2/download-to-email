@@ -31,7 +31,7 @@ test("shouldn't email the pdf in simulation mode", async () => {
   await main({
     simulate,
     date,
-    accounts: mockedAccounts,
+    getAccounts: () => mockedAccounts,
     getCookie: mockedGetCookie,
     getSentMails: mockedGetSentMails,
     downloadPDF: mockedDownloadPDF,
@@ -77,7 +77,7 @@ test("shouldn't email the pdf if it's already been sent", async () => {
   await main({
     simulate,
     date,
-    accounts: mockedAccounts,
+    getAccounts: () => mockedAccounts,
     getCookie: mockedGetCookie,
     getSentMails: mockedGetSentMails,
     downloadPDF: mockedDownloadPDF,
@@ -117,7 +117,7 @@ test("shouldn't email pdf if there is an error downloading it", async () => {
   await main({
     simulate,
     date,
-    accounts: mockedAccounts,
+    getAccounts: () => mockedAccounts,
     getCookie: mockedGetCookie,
     getSentMails: mockedGetSentMails,
     downloadPDF: mockedDownloadPDF,

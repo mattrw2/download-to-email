@@ -18,6 +18,18 @@ const pdfOptions = {
 
 const emailFileName = "report"
 const logFileName = "mailLog"
+const graphAPIAppId = "c13fffc1-3327-466e-8b2d-292a89357d5a"
+const driveId = "b!OrjuRu2aRkOjO4RIhcKRldY6_9e_ymtIjUPrd84MNxSGshmUJ1o6RYubaS5azclQ"
+const driveItemId = "016AEJ76TNQW6IECLS5VGZJKV52TPTVGLO"
 
+const expectedAccountSchema = {
+  "project number": { required: true, type: "string" },
+  "project name": { required: true, type: "string" },
+  "teamgantt project id": { required: true, type: "number" },
+  "customer first name": { required: true, type: "string" },
+  "customer last name": { required: true, type: "string" },
+  "customer email": { required: true, type: "email" },
+  "customer email cc": { required: false, type: "emailList" }
+}
 
-export { pdfOptions, emailFileName, logFileName }
+export { pdfOptions, emailFileName, logFileName, graphAPIAppId, driveId, driveItemId, expectedAccountSchema }

@@ -1,7 +1,8 @@
 import fs from "fs"
-import { logFileName } from "./config.js"
+import { expectedAccountSchema, logFileName } from "./config.js"
 import { pdfOptions } from "./config.js"
 import axios from "axios"
+import validator from "validator"
 
 const notifyTeams = async (errorMessage) => {
   if (process.env.NODE_ENV === "test") {
@@ -11,7 +12,7 @@ const notifyTeams = async (errorMessage) => {
 
   const time = new Date().toLocaleString()
 
-  const messageCard =  {
+  const messageCard = {
     "@type": "MessageCard",
     "@context": "http://schema.org/extensions",
     themeColor: "0076D7",
@@ -70,7 +71,7 @@ const getSentMails = () => {
   // Skip the first line (header)
   return lines.slice(1).map((line) => {
     const [project, email, date] = line.split(",")
-    return { project, email, date }
+    return { project: parseInt(project), email, date }
   })
 }
 
@@ -81,18 +82,69 @@ const logSentMail = (project, email, filePath) => {
     fs.writeFileSync(logPath, header)
   }
 
-  const logData = `${project},${email},${filePath.split("_")[1].split(".")[0]}\n`
+  const logData = `${project},${email},${
+    filePath.split("_")[1].split(".")[0]
+  }\n`
   fs.appendFileSync(logPath, logData)
 }
 
-const getAccountsData = () => {
-  const accountsPath = "./src/accounts.json"
-  if (!fs.existsSync(accountsPath)) {
-    throw new Error("No accounts file found")
-  }
+const getCleanedAndValidatedAccount = (row) => {
+  const errors = []
 
-  const accountsData = fs.readFileSync(accountsPath, "utf-8")
-  return JSON.parse(accountsData)
+  for (const [key, value] of Object.entries(expectedAccountSchema)) {
+    const fieldValue = row[key]
+    if (value.required && !fieldValue) {
+      errors.push(`Missing required field: ${key}`)
+      continue
+    }
+
+    if (!value.required && !fieldValue) {
+      continue
+    }
+
+    if (value.type === "string" && typeof fieldValue !== "string") {
+      errors.push(`Invalid type for field ${key}: expected string`)
+    } else if (value.type === "number" && typeof fieldValue !== "number") {
+      errors.push(`Invalid type for field ${key}: expected number`)
+    } else if (value.type === "email" && !validator.isEmail(fieldValue)) {
+      errors.push(`Invalid email format for field ${key}`)
+    } else if (value.type === "emailList") {
+      const emails = fieldValue.split(",").map((email) => email.trim())
+      for (const email of emails) {
+        if (!validator.isEmail(email)) {
+          errors.push(`Invalid email format in list for field ${key}: ${email}`)
+        }
+      }
+    }
+  }
+  if (errors.length > 0) {
+    throw new Error(`Validation errors: ${errors.join(", ")}`)
+  }
+  return {
+    project_number: row["project number"],
+    project_name: row["project name"],
+    teamgantt_project_id: row["teamgantt project id"],
+    first_name: row["customer first name"],
+    last_name: row["customer last name"],
+    email: row["customer email"],
+    cc: row["customer email cc"]
+      ? row["customer email cc"].split(",").map((email) => email.trim())
+      : []
+  }
 }
 
-export { getPdfUrl, getSentMails, logSentMail, getAccountsData, notifyTeams }
+const getCleanedAndValidatedAccounts = (accounts) => {
+  return accounts
+    .filter((account) => account?.["project number"])
+    .map((account, index) => {
+      return getCleanedAndValidatedAccount(account)
+    })
+}
+
+export {
+  getPdfUrl,
+  getSentMails,
+  logSentMail,
+  notifyTeams,
+  getCleanedAndValidatedAccounts
+}

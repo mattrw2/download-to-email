@@ -1,7 +1,7 @@
 import { createWriteStream, readFileSync } from "fs"
 import { chromium } from "playwright"
 import { createTransport } from "nodemailer"
-import { emailFileName } from "./config.js"
+import { emailFileName, graphAPIAppId, driveId, driveItemId } from "./config.js"
 import dotenv from "dotenv"
 import axios from "axios"
 import fs from "fs"
@@ -10,12 +10,13 @@ import minimist from "minimist"
 import handlebars from "handlebars"
 import { collapseRootGroups, getRootGroups } from "./api.js"
 import {
-  getAccountsData,
+  getCleanedAndValidatedAccounts,
   getPdfUrl,
   getSentMails,
   logSentMail,
   notifyTeams
 } from "./helpers.js"
+import xlsx from "xlsx"
 dotenv.config()
 
 function loadTemplate(data) {
@@ -23,6 +24,75 @@ function loadTemplate(data) {
   const templateContent = fs.readFileSync(templatePath, "utf8")
   const template = handlebars.compile(templateContent)
   return template(data)
+}
+
+const getAccounts = async () => {
+  const url = `https://login.microsoftonline.com/${graphAPIAppId}/oauth2/v2.0/token`
+  const headers = {
+    "Content-Type": "application/x-www-form-urlencoded"
+  }
+
+  const body = new URLSearchParams({
+    grant_type: "client_credentials",
+    client_id: process.env.GRAPH_API_CLIENT_ID,
+    client_secret: process.env.GRAPH_API_CLIENT_SECRET,
+    scope: "https://graph.microsoft.com/.default"
+  })
+
+  const response = await axios.post(url, body, { headers })
+  if (response.status !== 200) {
+    throw new Error(
+      `Failed to get access token: ${response.status} ${response.statusText}`
+    )
+  }
+  const accessToken = response.data.access_token
+  const itemUrl = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${driveItemId}`
+
+  const itemHeaders = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json"
+  }
+  const itemResponse = await axios.get(itemUrl, { headers: itemHeaders })
+  if (itemResponse.status !== 200) {
+    throw new Error(
+      `Failed to get Excel config sheet: ${itemResponse.status} ${itemResponse.statusText}`
+    )
+  }
+  const excelFileUrl = itemResponse.data["@microsoft.graph.downloadUrl"]
+
+  const excelResponse = await axios.get(excelFileUrl, {
+    responseType: "arraybuffer"
+  })
+  if (excelResponse.status !== 200) {
+    throw new Error(
+      `Failed to download accounts: ${excelResponse.status} ${excelResponse.statusText}`
+    )
+  }
+  const workbook = xlsx.read(excelResponse.data, { type: "buffer" })
+  const sheetName = workbook.SheetNames[0]
+  const sheet = workbook.Sheets[sheetName]
+  const data = xlsx.utils.sheet_to_json(sheet, { header: 1 })
+
+  const headerRow = data[1]
+  const dataRows = data.slice(2)
+
+  if (!data || data.length === 0) {
+    throw new Error("No data found in the Excel accounts sheet")
+  }
+
+ const jsonData = dataRows.map((row) => {
+    const rowData = {}
+    headerRow.forEach((header, index) => {
+      rowData[header] = row[index]
+    })
+    return rowData
+  }
+  )
+  if (!jsonData || jsonData.length === 0) {
+    throw new Error("No valid data found in the Excel config sheet")
+  }
+
+  return getCleanedAndValidatedAccounts(jsonData)
 }
 
 const downloadPDF = async (cookie, teamgantt_project_id, date) => {
@@ -171,7 +241,7 @@ const getCookie = async () => {
 const main = async ({
   simulate,
   date,
-  accounts,
+  getAccounts,
   getCookie,
   getSentMails,
   downloadPDF,
@@ -185,6 +255,7 @@ const main = async ({
   )
   const cookie = await getCookie()
   const sentEmails = getSentMails()
+  const accounts = await getAccounts()
 
   for (const account of accounts) {
     if (!account.teamgantt_project_id || !account.email) {
@@ -251,7 +322,7 @@ if (process.argv[1] === import.meta.filename) {
     const defaults = {
       date: new Date().toISOString().split("T")[0],
       simulate: false,
-      accounts: getAccountsData(),
+      getAccounts,
       getCookie,
       getSentMails,
       downloadPDF,
